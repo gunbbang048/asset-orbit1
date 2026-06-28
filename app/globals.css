@@ -1,0 +1,30 @@
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: #05070d;
+}
+
+body {
+  margin: 0;
+  background: #05070d;
+  color: #f8fafc;
+  overscroll-behavior: none;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+input,
+select {
+  -webkit-appearance: none;
+  appearance: none;
+}
