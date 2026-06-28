@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ChangeEvent, CSSProperties } from 'react';
 
 type Stock = {
   id: string;
@@ -142,6 +143,7 @@ export default function Home() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState('');
   const [hasHydrated, setHasHydrated] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [snapshots, setSnapshots] = useState<Snapshot[]>([
     { year: 2024, age: 20, totalAsset: 0 },
     { year: 2025, age: 21, totalAsset: 4_200_000 },
@@ -329,6 +331,83 @@ export default function Home() {
     if (!ok) return;
 
     setSavings((prev) => prev.filter((saving) => saving.id !== id));
+  }
+  function exportBackup() {
+    const backup = {
+      app: 'asset-orbit',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      data: {
+        cash,
+        exchangeRate,
+        stocks,
+        savings,
+        snapshots,
+        lastUpdated,
+      },
+    };
+  
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {
+      type: 'application/json;charset=utf-8',
+    });
+  
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+  
+    link.href = url;
+    link.download = `asset-orbit-backup-${new Date()
+      .toISOString()
+      .slice(0, 10)}.json`;
+  
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  
+    URL.revokeObjectURL(url);
+  }
+  
+  function openBackupFilePicker() {
+    fileInputRef.current?.click();
+  }
+  
+  function importBackup(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+  
+    if (!file) return;
+  
+    const reader = new FileReader();
+  
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(String(reader.result));
+  
+        if (parsed.app !== 'asset-orbit' || !parsed.data) {
+          alert('자산궤도 백업 파일이 아닙니다.');
+          return;
+        }
+  
+        const ok = confirm(
+          '백업 데이터를 가져오면 현재 입력된 자산 데이터가 백업 파일 내용으로 교체됩니다. 계속할까요?'
+        );
+  
+        if (!ok) return;
+  
+        setCash(parsed.data.cash ?? 0);
+        setExchangeRate(parsed.data.exchangeRate ?? 1380);
+        setStocks(parsed.data.stocks ?? []);
+        setSavings(parsed.data.savings ?? []);
+        setSnapshots(parsed.data.snapshots ?? []);
+        setLastUpdated(parsed.data.lastUpdated ?? '');
+  
+        alert('백업 데이터를 복원했습니다. Finnhub API Key는 다시 입력해야 합니다.');
+      } catch {
+        alert('백업 파일을 읽는 데 실패했습니다.');
+      } finally {
+        event.target.value = '';
+      }
+    };
+  
+    reader.readAsText(file);
   }
 
   const chartWidth = 360;
@@ -793,6 +872,30 @@ export default function Home() {
           ))}
         </section>
       </section>
+      <section style={sectionStyle}>
+  <h3 style={{ marginTop: 0 }}>데이터 백업</h3>
+
+  <p style={mutedText}>
+    현재 입력된 현금, 주식, 적금, 자산 기록을 JSON 파일로 저장하고 나중에 다시 복원할 수 있습니다.
+    Finnhub API Key는 보안상 백업에 포함하지 않습니다.
+  </p>
+
+  <button onClick={exportBackup} style={secondaryButtonStyle}>
+    데이터 내보내기
+  </button>
+
+  <button onClick={openBackupFilePicker} style={secondaryButtonStyle}>
+    데이터 가져오기
+  </button>
+
+  <input
+    ref={fileInputRef}
+    type="file"
+    accept="application/json,.json"
+    onChange={importBackup}
+    style={{ display: 'none' }}
+  />
+</section>
     </main>
   );
 }
